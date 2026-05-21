@@ -1,71 +1,120 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <h1>Attendance</h1>
 
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <input type="date" id="date" class="form-control" placeholder="Date">
-        </div>
-        <div class="col-md-6">
-            <button id="filter_button" class="btn btn-primary w-25">Show Records</button>
+<div class="container" style="max-width: 1200px;">
+
+    <!-- Header -->
+    <div class="att-header">
+        <h1>Daily Attendance</h1>
+        <div class="header-line"></div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="filter-card">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="filter-label">Date</label>
+                <input type="date" id="date" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <button id="filter_button" class="btn-filter w-100">Show Records</button>
+            </div>
         </div>
     </div>
 
-    <table class="table table-bordered" id="attendanceTable">
-        <thead>
-            <tr>
-                <th>Employee ID</th>
-                <th>Employee Name</th>
-                <th>Time In</th>
-                <th>Time Out</th>
-                <th>Total Time</th>
-            </tr>
-        </thead>
-    </table>
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card checkin">
+            <div class="s-label">Total Check-ins</div>
+            <div class="s-value" id="total_checkin">0</div>
+            <div class="s-icon">→</div>
+        </div>
+        <div class="summary-card checkout">
+            <div class="s-label">Total Check-outs</div>
+            <div class="s-value" id="total_checkout">0</div>
+            <div class="s-icon">←</div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table class="table table-bordered table-hover" id="attendanceTable">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Employee Name</th>
+                    <th>Time In</th>
+                    <th>Time Out</th>
+                    <th>Total Time</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+
 </div>
+
 @endsection
 
-@section('scripts') 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
+@section('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
-        document.getElementById('date').max = yesterday;
-    });
+document.addEventListener('DOMContentLoaded', function () {
+    const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
+    document.getElementById('date').max   = yesterday;
+    document.getElementById('date').value = yesterday;
+});
 
-    $(document).ready(function () {
-        var table = $('#attendanceTable').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: {
-                url: "{{ route('devices.getDailyAttendanceSummary') }}",
-                data: function (d) {
-                    d.start_date = $('#date').val();
+$(document).ready(function () {
+    var table = $('#attendanceTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: "{{ route('devices.getDailyAttendanceSummary') }}",
+            data: function (d) {
+                d.start_date = $('#date').val();
+            },
+            dataSrc: function(json) {
+                let checkins  = json.data.filter(x => x.first_in).length;
+                let checkouts = json.data.filter(x => x.last_out && x.last_out != "No Checkout").length;
+                $('#total_checkin').text(checkins);
+                $('#total_checkout').text(checkouts);
+                return json.data;
+            }
+        },
+        dom: '<"row"<"col-md-6"f>>t<"row"<"col-md-6"B>>',
+        buttons: ['excel', 'pdf', 'csv', 'pageLength'],
+        searching: false,
+        pageLength: 100,
+        lengthMenu: [50, 100, 500, { label: 'All', value: -1 }],
+        columns: [
+            { data: 'employee_id',   name: 'employee_id' },
+            { data: 'employee_name', name: 'employee_name' },
+            {
+                data: 'first_in', name: 'first_in',
+                render: function(data) {
+                    if (!data) return '<span class="badge bg-warning">No Check-in</span>';
+                    return '<span class="badge bg-success">' + data + '</span>';
                 }
             },
-            dom: '<"row"<"col-md-6"f>>t<"row"<"col-md-6"B>>',
-            buttons: [
-                'excel', 'pdf', 'pageLength'
-            ],
-            searching: false,
-            pageLength: 100,
-            lengthMenu: [50, 100, 500, { label: 'All', value: -1 }],
-            columns: [
-                { data: 'employee_id', name: 'employee_id' },
-                { data: 'employee_name', name: 'employee_name' },
-                { data: 'first_in', name: 'first_in' },
-                { data: 'last_out', name: 'last_out' },
-                { data: 'total_time', name: 'total_time' },                
-            ],
-            order: [[0, 'asc']]
-        });
-
-        $('#filter_button').click(function () {
-            table.draw();
-        });
+            {
+                data: 'last_out', name: 'last_out',
+                render: function(data) {
+                    if (!data || data === "No Checkout") return '<span class="badge bg-danger">No Checkout</span>';
+                    return '<span class="badge bg-info">' + data + '</span>';
+                }
+            },
+            {
+                data: 'total_time', name: 'total_time',
+                render: function(data) {
+                    return data || '<span style="color:var(--muted)">N/A</span>';
+                }
+            },
+        ],
+        order: [[0, 'asc']]
     });
+
+    $('#filter_button').click(function () { table.draw(); });
+});
 </script>
 @endsection
+
