@@ -123,7 +123,10 @@ class DeviceController extends Controller
         $attendanceSummary = $employees->map(function ($employee) use ($attendanceData) {
 
             $attendance = $attendanceData->get($employee->employee_id);
-            $firstIn = $attendance && $attendance->first_in ? Carbon::parse($attendance->first_in) : null;
+	    //$attendanceData = DB::table('attendances')
+    		//->whereDate('timestamp', $request->date ?? now()->toDateString())
+    		//->get();	
+	    $firstIn = $attendance && $attendance->first_in ? Carbon::parse($attendance->first_in) : null;
             $lastOut = $attendance && $attendance->last_out ? Carbon::parse($attendance->last_out) : null;
             $totalTime = ($firstIn && $lastOut) ? sprintf('%02d:%02d', $firstIn->diffInHours($lastOut), $firstIn->diffInMinutes($lastOut) % 60) : 'N/A';
 
@@ -146,61 +149,107 @@ class DeviceController extends Controller
     {
         return view('devices.monthly');
     }
+
     public function getMonthlyAttendanceSummary(Request $request)
     {
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
         $employeeId = $request->input('employee_id');
         $employeeName = $request->input('employee_name');
+        $allEmployees = $request->input('all_employees'); // New flag
+
         // Validate input
-        if (!$startDate || !$endDate || (!$employeeId && !$employeeName)) {
-            return response()->json(['data' => []]); // Return empty array if required inputs are missing
-        }
-        // Parse dates
-        $startDate = Carbon::parse($startDate)->startOfDay();
-        $endDate = Carbon::parse($endDate)->endOfDay();
-        // Find the employee
-        $employee = DB::table('employees')
-            ->where(function ($query) use ($employeeId, $employeeName) {
-                if ($employeeId) {
-                    $query->where('employee_id', $employeeId);
-                }
-                if ($employeeName) {
-                    $query->orWhere('name', 'like', '%' . $employeeName . '%');
-                }
-            })
-            ->first();
-        // If employee not found, return empty array
-        if (!$employee) {
+        if (!$startDate || !$endDate) {
             return response()->json(['data' => []]);
         }
-        // Fetch attendance records for the employee
-        $attendanceData = DB::table('attendances')
-            ->select(
-                DB::raw('DATE(timestamp) as date'),
-                DB::raw('MIN(CASE WHEN status1 = 0 THEN timestamp END) as first_in'),
-                DB::raw('MAX(CASE WHEN status1 = 1 THEN timestamp END) as last_out')
-            )
-            ->where('employee_id', $employee->employee_id)
-            ->whereBetween('timestamp', [$startDate, $endDate])
-            ->groupBy(DB::raw('DATE(timestamp)'))
-            ->get();
-        // Prepare the result
-        $result = $attendanceData->map(function ($record) use ($employee) {
-            $firstIn = $record->first_in ? Carbon::parse($record->first_in) : null;
-            $lastOut = $record->last_out ? Carbon::parse($record->last_out) : null;
-            $totalTime = ($firstIn && $lastOut) ? $firstIn->diff($lastOut)->format('%H:%I') : 'N/A';
-            return [
-                'employee_id' => $employee->employee_id,
-                'employee_name' => $employee->name,
-                'date' => $record->date,
-                'first_in' => $firstIn ? $firstIn->format('h:i A') : '-',
-                'last_out' => $lastOut ? $lastOut->format('h:i A') : '-',
-                'total_hours' => $totalTime,
-            ];
-        });
-        return response()->json(['data' => $result]);
+
+        $startDate = Carbon::parse($startDate)->startOfDay();
+        $endDate = Carbon::parse($endDate)->endOfDay();
+
+        if ($allEmployees) {
+            // Fetch all employees and aggregate total hours over the period
+            $employees = DB::table('employees')->select('employee_id', 'name')->get();
+
+            $attendanceData = DB::table('attendances')
+                ->select(
+                    'employee_id',
+                    DB::raw('MIN(CASE WHEN status1 = 0 THEN timestamp END) as first_in'),
+                    DB::raw('MAX(CASE WHEN status1 = 1 THEN timestamp END) as last_out')
+                )
+                ->whereBetween('timestamp', [$startDate, $endDate])
+                ->groupBy('employee_id', DB::raw('DATE(timestamp)'))
+                ->get()
+                ->groupBy('employee_id'); // Group by employee
+
+            $result = $employees->map(function ($employee) use ($attendanceData) {
+                $records = $attendanceData->get($employee->employee_id) ?? [];
+                $totalMinutes = 0;
+
+                foreach ($records as $record) {
+                    $firstIn = $record->first_in ? Carbon::parse($record->first_in) : null;
+                    $lastOut = $record->last_out ? Carbon::parse($record->last_out) : null;
+                    if ($firstIn && $lastOut) {
+                        $totalMinutes += $firstIn->diffInMinutes($lastOut);
+                    }
+                }
+
+                $hours = floor($totalMinutes / 60);
+                $minutes = $totalMinutes % 60;
+                $totalTime = sprintf('%02d:%02d', $hours, $minutes);
+
+                return [
+                    'employee_id' => $employee->employee_id,
+                    'employee_name' => $employee->name,
+                    'total_hours' => $totalTime,
+                ];
+            });
+
+            return response()->json(['data' => $result]);
+        } else {
+            // Existing per-employee filter logic
+            if (!$employeeId && !$employeeName) {
+                return response()->json(['data' => []]);
+            }
+
+            $employee = DB::table('employees')
+                ->where(function ($query) use ($employeeId, $employeeName) {
+                    if ($employeeId) $query->where('employee_id', $employeeId);
+                    if ($employeeName) $query->orWhere('name', 'like', '%' . $employeeName . '%');
+                })
+                ->first();
+
+            if (!$employee) {
+                return response()->json(['data' => []]);
+            }
+
+            $attendanceData = DB::table('attendances')
+                ->select(
+                    DB::raw('DATE(timestamp) as date'),
+                    DB::raw('MIN(CASE WHEN status1 = 0 THEN timestamp END) as first_in'),
+                    DB::raw('MAX(CASE WHEN status1 = 1 THEN timestamp END) as last_out')
+                )
+                ->where('employee_id', $employee->employee_id)
+                ->whereBetween('timestamp', [$startDate, $endDate])
+                ->groupBy(DB::raw('DATE(timestamp)'))
+                ->get();
+
+            $result = $attendanceData->map(function ($record) use ($employee) {
+                $firstIn = $record->first_in ? Carbon::parse($record->first_in) : null;
+                $lastOut = $record->last_out ? Carbon::parse($record->last_out) : null;
+                $totalTime = ($firstIn && $lastOut) ? $firstIn->diff($lastOut)->format('%H:%I') : 'N/A';
+                return [
+                    'employee_id' => $employee->employee_id,
+                    'employee_name' => $employee->name,
+                    'date' => $record->date,
+                    'first_in' => $firstIn ? $firstIn->format('h:i A') : '-',
+                    'last_out' => $lastOut ? $lastOut->format('h:i A') : '-',
+                    'total_hours' => $totalTime,
+                ];
+            });
+
+            return response()->json(['data' => $result]);
+        }
     }
 }
  
- 
+
