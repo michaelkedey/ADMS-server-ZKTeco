@@ -119,8 +119,8 @@ $(document).ready(function () {
             {
                 data: 'status1', name: 'status1',
                 render: function (data) {
-                    if (data == 1) return '<span class="badge bg-danger">Out ⬅️</span>';
-                    else           return '<span class="badge bg-success">In ➡️</span>';
+                    if (data == 1) return '<span class="badge bg-danger">Out</span>';
+                    else           return '<span class="badge bg-success">In</span>';
                 }
             },
             {
