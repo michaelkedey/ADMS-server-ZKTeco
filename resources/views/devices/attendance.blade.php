@@ -7,7 +7,6 @@
     <!-- Header -->
     <div class="att-header">
         <h1>Attendance</h1>
-        <div class="header-line"></div>
     </div>
 
     <!-- Filter Card -->

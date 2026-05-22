@@ -325,7 +325,7 @@
         }
         .filter-label {
             font-family: 'Syne', sans-serif;
-            font-size: 0.62rem;
+            font-size: 0.80rem;
             font-weight: 700;
             letter-spacing: 2px;
             text-transform: uppercase;
@@ -384,7 +384,7 @@
         .summary-card.checkout::after { background: var(--danger); }
         .summary-card .s-label {
             font-family: 'Syne', sans-serif;
-            font-size: 0.62rem;
+            font-size: 0.80rem;
             font-weight: 700;
             letter-spacing: 2.5px;
             text-transform: uppercase;
@@ -392,11 +392,11 @@
             margin-bottom: 10px;
         }
         .summary-card .s-value {
-            font-family: 'Syne', sans-serif;
-            font-size: 2.6rem;
+	    font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
             font-weight: 800;
-            line-height: 1;
-            letter-spacing: -2px;
+            line-height: 1.5;
+            letter-spacing: 1px;
         }
         .summary-card.checkin  .s-value { color: var(--success); }
         .summary-card.checkout .s-value { color: var(--danger); }
@@ -417,11 +417,11 @@
             gap: 18px;
             margin-bottom: 28px;
         }
-        .att-header h1 {
-            font-family: 'Syne', sans-serif;
+	.att-header h1 {
+	    font-family: 'JetBrains Mono', monospace;
             font-weight: 800;
             font-size: 2.2rem;
-            letter-spacing: -1px;
+            letter-spacing: 1px;
             color: var(--text);
             margin: 0;
             line-height: 1;
@@ -471,7 +471,7 @@
             background: var(--surface2) !important;
             color: var(--muted) !important;
             font-family: 'Syne', sans-serif !important;
-            font-size: 0.6rem !important;
+            font-size: 0.80rem !important;
             font-weight: 700 !important;
             letter-spacing: 2px !important;
             text-transform: uppercase !important;
@@ -579,7 +579,6 @@
             <!-- Brand -->
             <a class="navbar-brand" href="{{ route('devices.Attendance') }}">
                 <img src="/logo.png" alt="Iridis Logo">
-                <span class="brand-text">Iridis<span class="brand-dot"></span></span>
             </a>
 
             @if (Auth::check())
