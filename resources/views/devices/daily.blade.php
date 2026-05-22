@@ -27,12 +27,10 @@
         <div class="summary-card checkin">
             <div class="s-label">Total Check-ins</div>
             <div class="s-value" id="total_checkin">0</div>
-            <div class="s-icon">→</div>
         </div>
         <div class="summary-card checkout">
             <div class="s-label">Total Check-outs</div>
             <div class="s-value" id="total_checkout">0</div>
-            <div class="s-icon">←</div>
         </div>
     </div>
 
